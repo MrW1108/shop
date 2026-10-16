@@ -1,4 +1,4 @@
-import type { Product } from '@/data/products'
+import { products, type Product } from '@/data/products'
 
 export type CartLine = { product: Product; quantity: number }
 export type CartState = CartLine[]
@@ -7,6 +7,35 @@ export type CartAction =
   | { type: 'increment'; productId: string }
   | { type: 'decrement'; productId: string }
   | { type: 'remove'; productId: string }
+
+const STORAGE_KEY = 'wayfarer-supply-cart-v1'
+
+export function loadSavedCart(_: null): CartState {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const saved: unknown = JSON.parse(raw)
+    if (!Array.isArray(saved)) return []
+    return saved.flatMap((item): CartLine[] => {
+      if (typeof item !== 'object' || item === null || !('productId' in item) || !('quantity' in item)) return []
+      const product = products.find((candidate) => candidate.id === item.productId)
+      const quantity = item.quantity
+      return product && typeof quantity === 'number' && Number.isInteger(quantity) && quantity > 0 && quantity <= 99
+        ? [{ product, quantity }]
+        : []
+    })
+  } catch {
+    return []
+  }
+}
+
+export function saveCart(cart: CartState) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cart.map(({ product, quantity }) => ({ productId: product.id, quantity }))))
+  } catch {
+    // Keep the in-memory cart usable if storage is disabled or full.
+  }
+}
 
 export function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {

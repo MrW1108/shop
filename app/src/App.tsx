@@ -24,7 +24,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { products, type CategoryId, type Product } from '@/data/products'
-import { cartReducer } from '@/state/cart'
+import { cartReducer, loadSavedCart, saveCart } from '@/state/cart'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
@@ -32,6 +32,14 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import './App.css'
 
 type Locale = 'en' | 'zh'
+
+function readSavedLocale(): Locale {
+  try {
+    return window.localStorage.getItem('wayfarer-supply-locale') === 'zh' ? 'zh' : 'en'
+  } catch {
+    return 'en'
+  }
+}
 
 const copy = {
   en: {
@@ -134,9 +142,9 @@ const categoryIcons = [Backpack, Compass, Headphones, AudioLines, Watch]
 const categoryColors = ['violet', 'cyan', 'pink', 'lime', 'blue']
 
 function App() {
-  const [locale, setLocale] = useState<Locale>('en')
+  const [locale, setLocale] = useState<Locale>(readSavedLocale)
   const [mobileMenu, setMobileMenu] = useState(false)
-  const [cart, dispatch] = useReducer(cartReducer, [])
+  const [cart, dispatch] = useReducer(cartReducer, null, loadSavedCart)
   const [cartOpen, setCartOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [detailQuantity, setDetailQuantity] = useState(1)
@@ -146,7 +154,14 @@ function App() {
 
   useEffect(() => {
     document.documentElement.lang = locale === 'en' ? 'en' : 'zh-CN'
+    try {
+      window.localStorage.setItem('wayfarer-supply-locale', locale)
+    } catch {
+      // Keep the selected language for this session when storage is unavailable.
+    }
   }, [locale])
+
+  useEffect(() => saveCart(cart), [cart])
 
   const toggleLocale = () => setLocale((current) => (current === 'en' ? 'zh' : 'en'))
   const categories: Array<CategoryId | 'all'> = ['all', 'bags', 'travel', 'tech', 'drinkware', 'everyday']
@@ -270,7 +285,7 @@ function App() {
       <Dialog open={selectedProduct !== null} onOpenChange={(open) => { if (!open) setSelectedProduct(null) }}>
         {selectedProduct && <DialogContent className="product-dialog" showCloseButton={false}>
           <Button className="dialog-close" variant="ghost" size="icon" aria-label={locale === 'en' ? 'Close details' : '关闭详情'} onClick={() => setSelectedProduct(null)}><X size={18} /></Button>
-          <div className={`dialog-image stage-${selectedProduct.tone}`}><img src={selectedProduct.image} alt={selectedProduct.name[locale]} /><span>{selectedProduct.label[locale]}</span></div>
+          <div className={`dialog-image stage-${selectedProduct.tone}`}><div className="product-image-orbit" aria-hidden="true" /><img src={selectedProduct.image} alt={selectedProduct.name[locale]} onError={(event) => { event.currentTarget.style.display = 'none' }} /><span>{selectedProduct.label[locale]}</span></div>
           <div className="dialog-info"><p className="section-kicker">{(t.categories as string[])[categories.indexOf(selectedProduct.category) - 1]} / {t.details}</p><DialogTitle>{selectedProduct.name[locale]}</DialogTitle><DialogDescription>{selectedProduct.description[locale]}</DialogDescription>
             <div className="dialog-rating"><Star size={14} fill="currentColor" />{selectedProduct.rating.toFixed(1)} <span>({selectedProduct.reviews} {t.reviewsLabel})</span></div>
             <strong className="dialog-price">{formatPrice(selectedProduct.price)}</strong>
@@ -285,7 +300,7 @@ function App() {
           <div className="cart-header"><div><p className="section-kicker">WS / PACKING SLIP</p><SheetTitle>{t.cartTitle}</SheetTitle><span>{cartCount} {locale === 'en' ? (cartCount === 1 ? 'item' : 'items') : '件商品'}</span></div><Button variant="ghost" size="icon" aria-label={locale === 'en' ? 'Close bag' : '关闭购物袋'} onClick={() => setCartOpen(false)}><X size={19} /></Button></div>
           {cart.length === 0 ? <div className="cart-empty"><div className="cart-empty-icon"><ShoppingCart size={22} /></div><h3>{t.cartEmpty}</h3><p>{t.cartEmptyHint}</p><Button className="primary-cta" onClick={() => setCartOpen(false)}>{t.continueShopping}<ArrowRight size={16} /></Button></div> : <>
             <div className="cart-lines">{cart.map((line) => <article className="cart-line" key={line.product.id}>
-              <div className={`cart-line-image stage-${line.product.tone}`}><img src={line.product.image} alt="" /></div>
+              <div className={`cart-line-image stage-${line.product.tone}`}><div className="product-image-orbit" aria-hidden="true" /><img src={line.product.image} alt="" onError={(event) => { event.currentTarget.style.display = 'none' }} /></div>
               <div className="cart-line-info"><span className="product-category">{(t.categories as string[])[categories.indexOf(line.product.category) - 1]}</span><h3>{line.product.name[locale]}</h3><strong>{formatPrice(line.product.price)}</strong>
                 <div className="cart-line-actions"><div className="cart-stepper"><button aria-label={locale === 'en' ? 'Decrease quantity' : '减少数量'} onClick={() => dispatch({ type: 'decrement', productId: line.product.id })}><Minus size={12} /></button><span>{line.quantity}</span><button aria-label={locale === 'en' ? 'Increase quantity' : '增加数量'} onClick={() => dispatch({ type: 'increment', productId: line.product.id })}><Plus size={12} /></button></div><button className="remove-item" onClick={() => dispatch({ type: 'remove', productId: line.product.id })}><Trash2 size={13} />{t.remove}</button></div>
               </div>
