@@ -6,17 +6,20 @@ import {
   AudioLines,
   Backpack,
   Compass,
+  ArrowDownUp,
   Globe2,
   Headphones,
   Menu,
   Search,
   ShoppingBag,
   Sparkles,
+  Star,
   Watch,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { products, type CategoryId } from '@/data/products'
 import './App.css'
 
 type Locale = 'en' | 'zh'
@@ -46,6 +49,16 @@ const copy = {
     footer: 'A little further, every day.',
     footerNote: 'Independent essentials for the open road.',
     language: 'Language',
+    catalogTitle: 'Selected gear.',
+    catalogKicker: 'THE EVERYDAY EXPLORER EDIT',
+    allGear: 'All gear',
+    resultLabel: 'pieces of good gear',
+    sortLabel: 'Featured',
+    reviewsLabel: 'reviews',
+    viewDetails: 'Quick look',
+    noResults: 'No gear found on this route.',
+    noResultsHint: 'Try another search or reset your filters.',
+    resetFilters: 'Clear filters',
   },
   zh: {
     announcement: '订单满 US$75 即享免费配送',
@@ -71,6 +84,16 @@ const copy = {
     footer: '每天，都再走远一点。',
     footerNote: '为自在旅途挑选的独立好物。',
     language: '语言',
+    catalogTitle: '精选装备。',
+    catalogKicker: '为日常探索者精选',
+    allGear: '全部装备',
+    resultLabel: '件精选装备',
+    sortLabel: '精选排序',
+    reviewsLabel: '条评价',
+    viewDetails: '快速查看',
+    noResults: '这条路线暂时没有找到装备。',
+    noResultsHint: '试试其他搜索词，或清除筛选条件。',
+    resetFilters: '清除筛选',
   },
 } satisfies Record<Locale, Record<string, string | string[]>>
 
@@ -80,6 +103,8 @@ const categoryColors = ['violet', 'cyan', 'pink', 'lime', 'blue']
 function App() {
   const [locale, setLocale] = useState<Locale>('en')
   const [mobileMenu, setMobileMenu] = useState(false)
+  const [activeCategory, setActiveCategory] = useState<CategoryId | 'all'>('all')
+  const [query, setQuery] = useState('')
   const t = copy[locale]
 
   useEffect(() => {
@@ -87,6 +112,12 @@ function App() {
   }, [locale])
 
   const toggleLocale = () => setLocale((current) => (current === 'en' ? 'zh' : 'en'))
+  const categories: Array<CategoryId | 'all'> = ['all', 'bags', 'travel', 'tech', 'drinkware', 'everyday']
+  const categoryLabels = [t.allGear, ...(t.categories as string[])]
+  const visibleProducts = products.filter((product) => {
+    const text = `${product.name[locale]} ${product.description[locale]} ${product.name.en} ${product.description.en}`.toLocaleLowerCase()
+    return (activeCategory === 'all' || product.category === activeCategory) && text.includes(query.trim().toLocaleLowerCase())
+  })
 
   return (
     <main className="storefront">
@@ -97,10 +128,10 @@ function App() {
           <span className="brand-name">WAYFARER<span>SUPPLY</span></span>
         </a>
         <nav className={`main-nav ${mobileMenu ? 'is-open' : ''}`} aria-label="Main navigation">
-          {t.nav.map((item, index) => <a href="#portals" key={item} onClick={() => setMobileMenu(false)}>{item}<span>0{index + 1}</span></a>)}
+          {t.nav.map((item, index) => <a href="#collection" key={item} onClick={() => { setActiveCategory(categories[index + 1]); setMobileMenu(false) }}>{item}<span>0{index + 1}</span></a>)}
         </nav>
         <div className="header-actions">
-          <label className="header-search"><Search size={15} /><Input aria-label={t.search} placeholder={t.search} /></label>
+          <label className="header-search"><Search size={15} /><Input aria-label={t.search} placeholder={t.search} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
           <Button className="locale-toggle" variant="ghost" onClick={toggleLocale} aria-label={`${t.language}: ${locale === 'en' ? 'English' : '中文'}`}>
             <Globe2 size={15} /><span>{locale === 'en' ? 'EN' : '中文'}</span><span className="locale-caret">⌄</span>
           </Button>
@@ -147,7 +178,7 @@ function App() {
         <div className="category-grid">
           {(t.categories as string[]).map((category, index) => {
             const Icon = categoryIcons[index]
-            return <a className={`category-card tone-${categoryColors[index]}`} href="#collection" key={category}>
+            return <a className={`category-card tone-${categoryColors[index]}`} href="#collection" key={category} onClick={() => setActiveCategory(categories[index + 1])}>
               <div className="category-topline"><span>PORTAL / 0{index + 1}</span><ArrowUpRight size={15} /></div>
               <div className="category-icon"><Icon strokeWidth={1.4} size={26} /></div>
               <div className="category-bottom"><div><h3>{category}</h3><p>{(t.categorySub as string[])[index]}</p></div><span className="category-arrow"><ArrowRight size={15} /></span></div>
@@ -158,12 +189,30 @@ function App() {
       </section>
 
       <section id="collection" className="collection-section section-wrap">
-        <div className="collection-topline"><p className="section-kicker">{t.collection}</p><span>CURATED / 05 CATEGORIES</span></div>
-        <div className="collection-preview">
-          <div className="preview-ring"><span>WS</span><i /></div>
-          <h2>{t.upcoming}</h2><p>{t.upcomingBody}</p>
-          <a href="#portals">{t.exploreLine}<ArrowRight size={15} /></a>
+        <div className="collection-topline"><div><p className="section-kicker">{t.catalogKicker}</p><h2>{t.catalogTitle}</h2></div><span>{visibleProducts.length.toString().padStart(2, '0')} / 10 {t.resultLabel}</span></div>
+        <div className="catalog-toolbar">
+          <label className="catalog-search"><Search size={15} /><Input aria-label={t.search} placeholder={t.search} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+          <div className="filter-pills" role="group" aria-label={t.categoryTitle}>
+            {categories.map((category, index) => <button key={category} className={`filter-pill ${activeCategory === category ? 'is-active' : ''}`} aria-pressed={activeCategory === category} onClick={() => setActiveCategory(category)}>{categoryLabels[index]}</button>)}
+          </div>
+          <div className="catalog-sort"><ArrowDownUp size={13} /><span>{t.sortLabel}</span></div>
         </div>
+        {visibleProducts.length > 0 ? <div className="product-grid">
+          {visibleProducts.map((product, index) => <article className="product-card" key={product.id}>
+            <div className={`product-image-stage stage-${product.tone}`}>
+              <div className="product-image-orbit" aria-hidden="true" />
+              <img src={product.image} alt={product.name[locale]} loading={index > 3 ? 'lazy' : 'eager'} onError={(event) => { event.currentTarget.style.display = 'none' }} />
+              <span className="product-label">{product.label[locale]}</span>
+              <span className="product-index">WS / {String(index + 1).padStart(2, '0')}</span>
+            </div>
+            <div className="product-info">
+              <div className="product-category">{(t.categories as string[])[categories.indexOf(product.category) - 1]}</div>
+              <h3>{product.name[locale]}</h3>
+              <p className="product-description">{product.description[locale]}</p>
+              <div className="product-meta"><span className="product-rating"><Star size={12} fill="currentColor" />{product.rating.toFixed(1)} <small>({product.reviews} {t.reviewsLabel})</small></span><strong>{locale === 'en' ? '$' : 'US$'}{product.price.toFixed(2)}</strong></div>
+            </div>
+          </article>)}
+        </div> : <div className="catalog-empty"><div className="empty-signal"><Search size={20} /></div><h3>{t.noResults}</h3><p>{t.noResultsHint}</p><Button variant="outline" onClick={() => { setQuery(''); setActiveCategory('all') }}>{t.resetFilters}</Button></div>}
       </section>
 
       <footer className="site-footer">
