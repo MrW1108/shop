@@ -178,6 +178,10 @@ function App() {
     toast.success(`${product.name[locale]} — ${t.added}`)
     setSelectedProduct(null)
   }
+  const openProduct = (product: Product) => {
+    setSelectedProduct(product)
+    setDetailQuantity(1)
+  }
   const submitSearch = (event: FormEvent<HTMLFormElement>, scrollToCatalog = false) => {
     event.preventDefault()
     setQuery(searchDraft.trim())
@@ -268,7 +272,7 @@ function App() {
               <img src={product.image} alt={product.name[locale]} loading={index > 3 ? 'lazy' : 'eager'} onError={(event) => { event.currentTarget.style.display = 'none' }} />
               <span className="product-label">{product.label[locale]}</span>
               <span className="product-index">WS / {String(index + 1).padStart(2, '0')}</span>
-              <button className="quick-view" aria-label={`${t.viewDetails}: ${product.name[locale]}`} onClick={() => { setSelectedProduct(product); setDetailQuantity(1) }}><ArrowUpRight size={17} /></button>
+              <button className="quick-view" aria-label={`${t.viewDetails}: ${product.name[locale]}`} onClick={() => openProduct(product)}><ArrowUpRight size={17} /></button>
             </div>
             <div className="product-info">
               <div className="product-category">{(t.categories as string[])[categories.indexOf(product.category) - 1]}</div>
@@ -277,6 +281,7 @@ function App() {
               <div className="product-meta"><span className="product-rating"><Star size={12} fill="currentColor" />{product.rating.toFixed(1)} <small>({product.reviews} {t.reviewsLabel})</small></span><strong>{formatPrice(product.price)}</strong></div>
               <Button className="product-add" onClick={() => addToCart(product)}><Plus size={14} />{t.addToBag}</Button>
             </div>
+            <button className="product-open" aria-label={`${t.viewDetails}: ${product.name[locale]}`} onClick={() => openProduct(product)} />
           </article>)}
         </div> : <div className="catalog-empty"><div className="empty-signal"><Search size={20} /></div><h3>{t.noResults}</h3><p>{t.noResultsHint}</p><Button variant="outline" onClick={() => { setQuery(''); setSearchDraft(''); setActiveCategory('all') }}>{t.resetFilters}</Button></div>}
       </section>
