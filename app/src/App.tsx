@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useReducer, useState } from 'react'
 import {
   ArrowDownRight,
   ArrowRight,
@@ -10,16 +10,25 @@ import {
   Globe2,
   Headphones,
   Menu,
+  Minus,
+  Plus,
+  ShoppingCart,
+  Trash2,
+  X,
   Search,
   ShoppingBag,
   Sparkles,
   Star,
   Watch,
-  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { products, type CategoryId } from '@/data/products'
+import { products, type CategoryId, type Product } from '@/data/products'
+import { cartReducer } from '@/state/cart'
+import { toast } from 'sonner'
+import { Toaster } from '@/components/ui/sonner'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import './App.css'
 
 type Locale = 'en' | 'zh'
@@ -59,6 +68,18 @@ const copy = {
     noResults: 'No gear found on this route.',
     noResultsHint: 'Try another search or reset your filters.',
     resetFilters: 'Clear filters',
+    addToBag: 'Add to bag',
+    inTheBag: 'In your bag',
+    quantity: 'Quantity',
+    details: 'A closer look',
+    cartTitle: 'Your field kit',
+    cartEmpty: 'Your bag is taking the scenic route.',
+    cartEmptyHint: 'Find something useful for the miles ahead.',
+    continueShopping: 'Explore the gear',
+    subtotal: 'Subtotal',
+    demoCheckout: 'Checkout is not enabled in this demo.',
+    remove: 'Remove',
+    added: 'Added to your bag',
   },
   zh: {
     announcement: '订单满 US$75 即享免费配送',
@@ -94,6 +115,18 @@ const copy = {
     noResults: '这条路线暂时没有找到装备。',
     noResultsHint: '试试其他搜索词，或清除筛选条件。',
     resetFilters: '清除筛选',
+    addToBag: '加入购物袋',
+    inTheBag: '已在购物袋中',
+    quantity: '数量',
+    details: '商品详情',
+    cartTitle: '你的出发装备',
+    cartEmpty: '购物袋还在路上。',
+    cartEmptyHint: '挑一件适合下一段旅程的好物吧。',
+    continueShopping: '继续探索装备',
+    subtotal: '商品小计',
+    demoCheckout: '此演示暂不支持结账。',
+    remove: '移除',
+    added: '已加入购物袋',
   },
 } satisfies Record<Locale, Record<string, string | string[]>>
 
@@ -103,6 +136,10 @@ const categoryColors = ['violet', 'cyan', 'pink', 'lime', 'blue']
 function App() {
   const [locale, setLocale] = useState<Locale>('en')
   const [mobileMenu, setMobileMenu] = useState(false)
+  const [cart, dispatch] = useReducer(cartReducer, [])
+  const [cartOpen, setCartOpen] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [detailQuantity, setDetailQuantity] = useState(1)
   const [activeCategory, setActiveCategory] = useState<CategoryId | 'all'>('all')
   const [query, setQuery] = useState('')
   const t = copy[locale]
@@ -118,6 +155,14 @@ function App() {
     const text = `${product.name[locale]} ${product.description[locale]} ${product.name.en} ${product.description.en}`.toLocaleLowerCase()
     return (activeCategory === 'all' || product.category === activeCategory) && text.includes(query.trim().toLocaleLowerCase())
   })
+  const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0)
+  const subtotal = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0)
+  const formatPrice = (value: number) => new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'zh-CN', { style: 'currency', currency: 'USD' }).format(value)
+  const addToCart = (product: Product, quantity = 1) => {
+    dispatch({ type: 'add', product, quantity })
+    toast.success(`${product.name[locale]} — ${t.added}`)
+    setSelectedProduct(null)
+  }
 
   return (
     <main className="storefront">
@@ -135,8 +180,8 @@ function App() {
           <Button className="locale-toggle" variant="ghost" onClick={toggleLocale} aria-label={`${t.language}: ${locale === 'en' ? 'English' : '中文'}`}>
             <Globe2 size={15} /><span>{locale === 'en' ? 'EN' : '中文'}</span><span className="locale-caret">⌄</span>
           </Button>
-          <Button className="cart-trigger" variant="outline" aria-label={locale === 'en' ? 'Shopping bag, 0 items' : '购物袋，0 件商品'}>
-            <ShoppingBag size={17} /><span className="cart-label">{locale === 'en' ? 'Bag' : '购物袋'}</span><span className="cart-count">0</span>
+          <Button className="cart-trigger" variant="outline" aria-label={`${locale === 'en' ? 'Shopping bag' : '购物袋'}，${cartCount}`} onClick={() => setCartOpen(true)}>
+            <ShoppingBag size={17} /><span className="cart-label">{locale === 'en' ? 'Bag' : '购物袋'}</span><span className="cart-count">{cartCount}</span>
           </Button>
           <Button className="mobile-menu-trigger" variant="ghost" aria-label={mobileMenu ? 'Close menu' : 'Open menu'} onClick={() => setMobileMenu((open) => !open)}>
             {mobileMenu ? <X size={20} /> : <Menu size={20} />}
@@ -204,12 +249,14 @@ function App() {
               <img src={product.image} alt={product.name[locale]} loading={index > 3 ? 'lazy' : 'eager'} onError={(event) => { event.currentTarget.style.display = 'none' }} />
               <span className="product-label">{product.label[locale]}</span>
               <span className="product-index">WS / {String(index + 1).padStart(2, '0')}</span>
+              <button className="quick-view" aria-label={`${t.viewDetails}: ${product.name[locale]}`} onClick={() => { setSelectedProduct(product); setDetailQuantity(1) }}><ArrowUpRight size={17} /></button>
             </div>
             <div className="product-info">
               <div className="product-category">{(t.categories as string[])[categories.indexOf(product.category) - 1]}</div>
               <h3>{product.name[locale]}</h3>
               <p className="product-description">{product.description[locale]}</p>
-              <div className="product-meta"><span className="product-rating"><Star size={12} fill="currentColor" />{product.rating.toFixed(1)} <small>({product.reviews} {t.reviewsLabel})</small></span><strong>{locale === 'en' ? '$' : 'US$'}{product.price.toFixed(2)}</strong></div>
+              <div className="product-meta"><span className="product-rating"><Star size={12} fill="currentColor" />{product.rating.toFixed(1)} <small>({product.reviews} {t.reviewsLabel})</small></span><strong>{formatPrice(product.price)}</strong></div>
+              <Button className="product-add" onClick={() => addToCart(product)}><Plus size={14} />{t.addToBag}</Button>
             </div>
           </article>)}
         </div> : <div className="catalog-empty"><div className="empty-signal"><Search size={20} /></div><h3>{t.noResults}</h3><p>{t.noResultsHint}</p><Button variant="outline" onClick={() => { setQuery(''); setActiveCategory('all') }}>{t.resetFilters}</Button></div>}
@@ -219,6 +266,36 @@ function App() {
         <div className="footer-brand"><span className="brand-mark"><span /></span><span>WAYFARER SUPPLY</span></div>
         <p>{t.footer}</p><span>{t.footerNote}</span><span className="footer-coordinate">40° 43′ N&nbsp;&nbsp; 73° 59′ W</span>
       </footer>
+
+      <Dialog open={selectedProduct !== null} onOpenChange={(open) => { if (!open) setSelectedProduct(null) }}>
+        {selectedProduct && <DialogContent className="product-dialog" showCloseButton={false}>
+          <Button className="dialog-close" variant="ghost" size="icon" aria-label={locale === 'en' ? 'Close details' : '关闭详情'} onClick={() => setSelectedProduct(null)}><X size={18} /></Button>
+          <div className={`dialog-image stage-${selectedProduct.tone}`}><img src={selectedProduct.image} alt={selectedProduct.name[locale]} /><span>{selectedProduct.label[locale]}</span></div>
+          <div className="dialog-info"><p className="section-kicker">{(t.categories as string[])[categories.indexOf(selectedProduct.category) - 1]} / {t.details}</p><DialogTitle>{selectedProduct.name[locale]}</DialogTitle><DialogDescription>{selectedProduct.description[locale]}</DialogDescription>
+            <div className="dialog-rating"><Star size={14} fill="currentColor" />{selectedProduct.rating.toFixed(1)} <span>({selectedProduct.reviews} {t.reviewsLabel})</span></div>
+            <strong className="dialog-price">{formatPrice(selectedProduct.price)}</strong>
+            <div className="detail-quantity"><span>{t.quantity}</span><div><Button variant="outline" size="icon" aria-label={locale === 'en' ? 'Decrease quantity' : '减少数量'} onClick={() => setDetailQuantity((value) => Math.max(1, value - 1))}><Minus size={14} /></Button><output>{detailQuantity}</output><Button variant="outline" size="icon" aria-label={locale === 'en' ? 'Increase quantity' : '增加数量'} onClick={() => setDetailQuantity((value) => value + 1)}><Plus size={14} /></Button></div></div>
+            <Button className="dialog-add" onClick={() => addToCart(selectedProduct, detailQuantity)}><ShoppingBag size={16} />{t.addToBag} · {formatPrice(selectedProduct.price * detailQuantity)}</Button>
+          </div>
+        </DialogContent>}
+      </Dialog>
+
+      <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+        <SheetContent side="right" className="cart-sheet" showCloseButton={false}>
+          <div className="cart-header"><div><p className="section-kicker">WS / PACKING SLIP</p><SheetTitle>{t.cartTitle}</SheetTitle><span>{cartCount} {locale === 'en' ? (cartCount === 1 ? 'item' : 'items') : '件商品'}</span></div><Button variant="ghost" size="icon" aria-label={locale === 'en' ? 'Close bag' : '关闭购物袋'} onClick={() => setCartOpen(false)}><X size={19} /></Button></div>
+          {cart.length === 0 ? <div className="cart-empty"><div className="cart-empty-icon"><ShoppingCart size={22} /></div><h3>{t.cartEmpty}</h3><p>{t.cartEmptyHint}</p><Button className="primary-cta" onClick={() => setCartOpen(false)}>{t.continueShopping}<ArrowRight size={16} /></Button></div> : <>
+            <div className="cart-lines">{cart.map((line) => <article className="cart-line" key={line.product.id}>
+              <div className={`cart-line-image stage-${line.product.tone}`}><img src={line.product.image} alt="" /></div>
+              <div className="cart-line-info"><span className="product-category">{(t.categories as string[])[categories.indexOf(line.product.category) - 1]}</span><h3>{line.product.name[locale]}</h3><strong>{formatPrice(line.product.price)}</strong>
+                <div className="cart-line-actions"><div className="cart-stepper"><button aria-label={locale === 'en' ? 'Decrease quantity' : '减少数量'} onClick={() => dispatch({ type: 'decrement', productId: line.product.id })}><Minus size={12} /></button><span>{line.quantity}</span><button aria-label={locale === 'en' ? 'Increase quantity' : '增加数量'} onClick={() => dispatch({ type: 'increment', productId: line.product.id })}><Plus size={12} /></button></div><button className="remove-item" onClick={() => dispatch({ type: 'remove', productId: line.product.id })}><Trash2 size={13} />{t.remove}</button></div>
+              </div>
+              <strong className="line-total">{formatPrice(line.product.price * line.quantity)}</strong>
+            </article>)}</div>
+            <div className="cart-summary"><div><span>{t.subtotal}</span><strong>{formatPrice(subtotal)}</strong></div><p>{t.demoCheckout}</p></div>
+          </>}
+        </SheetContent>
+      </Sheet>
+      <Toaster position="top-center" />
     </main>
   )
 }
