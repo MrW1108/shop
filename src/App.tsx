@@ -24,7 +24,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { products, type CategoryId, type Product } from '@/data/products'
 import { cartReducer, loadSavedCart, saveCart } from '@/state/cart'
-import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
@@ -175,7 +174,6 @@ function App() {
   const formatPrice = (value: number) => new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'zh-CN', { style: 'currency', currency: 'USD' }).format(value)
   const addToCart = (product: Product, quantity = 1) => {
     dispatch({ type: 'add', product, quantity })
-    toast.success(`${product.name[locale]} — ${t.added}`)
     setSelectedProduct(null)
   }
   const openProduct = (product: Product) => {
