@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react'
+import { useEffect, useReducer, useState, type FormEvent } from 'react'
 import {
   ArrowDownRight,
   ArrowRight,
@@ -6,7 +6,6 @@ import {
   AudioLines,
   Backpack,
   Compass,
-  ArrowDownUp,
   Globe2,
   Headphones,
   Menu,
@@ -70,7 +69,7 @@ const copy = {
     catalogKicker: 'THE EVERYDAY EXPLORER EDIT',
     allGear: 'All gear',
     resultLabel: 'pieces of good gear',
-    sortLabel: 'Featured',
+    searchAction: 'Search',
     reviewsLabel: 'reviews',
     viewDetails: 'Quick look',
     noResults: 'No gear found on this route.',
@@ -117,7 +116,7 @@ const copy = {
     catalogKicker: '为日常探索者精选',
     allGear: '全部装备',
     resultLabel: '件精选装备',
-    sortLabel: '精选排序',
+    searchAction: '搜索',
     reviewsLabel: '条评价',
     viewDetails: '快速查看',
     noResults: '这条路线暂时没有找到装备。',
@@ -150,6 +149,7 @@ function App() {
   const [detailQuantity, setDetailQuantity] = useState(1)
   const [activeCategory, setActiveCategory] = useState<CategoryId | 'all'>('all')
   const [query, setQuery] = useState('')
+  const [searchDraft, setSearchDraft] = useState('')
   const t = copy[locale]
 
   useEffect(() => {
@@ -178,6 +178,11 @@ function App() {
     toast.success(`${product.name[locale]} — ${t.added}`)
     setSelectedProduct(null)
   }
+  const submitSearch = (event: FormEvent<HTMLFormElement>, scrollToCatalog = false) => {
+    event.preventDefault()
+    setQuery(searchDraft.trim())
+    if (scrollToCatalog) document.getElementById('collection')?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   return (
     <main className="storefront">
@@ -191,7 +196,7 @@ function App() {
           {t.nav.map((item, index) => <a href="#collection" key={item} onClick={() => { setActiveCategory(categories[index + 1]); setMobileMenu(false) }}>{item}<span>0{index + 1}</span></a>)}
         </nav>
         <div className="header-actions">
-          <label className="header-search"><Search size={15} /><Input aria-label={t.search} placeholder={t.search} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+          <form className="header-search" onSubmit={(event) => submitSearch(event, true)}><Search size={15} /><Input aria-label={t.search} placeholder={t.search} value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} /><button type="submit" aria-label={t.searchAction}><ArrowRight size={14} /></button></form>
           <Button className="locale-toggle" variant="ghost" onClick={toggleLocale} aria-label={`${t.language}: ${locale === 'en' ? 'English' : '中文'}`}>
             <Globe2 size={15} /><span>{locale === 'en' ? 'EN' : '中文'}</span><span className="locale-caret">⌄</span>
           </Button>
@@ -251,11 +256,10 @@ function App() {
       <section id="collection" className="collection-section section-wrap">
         <div className="collection-topline"><div><p className="section-kicker">{t.catalogKicker}</p><h2>{t.catalogTitle}</h2></div><span>{visibleProducts.length.toString().padStart(2, '0')} / 10 {t.resultLabel}</span></div>
         <div className="catalog-toolbar">
-          <label className="catalog-search"><Search size={15} /><Input aria-label={t.search} placeholder={t.search} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+          <form className="catalog-search" onSubmit={(event) => submitSearch(event)}><Search size={15} /><Input aria-label={t.search} placeholder={t.search} value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} /><button type="submit">{t.searchAction}<ArrowRight size={13} /></button></form>
           <div className="filter-pills" role="group" aria-label={t.categoryTitle}>
             {categories.map((category, index) => <button key={category} className={`filter-pill ${activeCategory === category ? 'is-active' : ''}`} aria-pressed={activeCategory === category} onClick={() => setActiveCategory(category)}>{categoryLabels[index]}</button>)}
           </div>
-          <div className="catalog-sort"><ArrowDownUp size={13} /><span>{t.sortLabel}</span></div>
         </div>
         {visibleProducts.length > 0 ? <div className="product-grid">
           {visibleProducts.map((product, index) => <article className="product-card" key={product.id}>
@@ -274,7 +278,7 @@ function App() {
               <Button className="product-add" onClick={() => addToCart(product)}><Plus size={14} />{t.addToBag}</Button>
             </div>
           </article>)}
-        </div> : <div className="catalog-empty"><div className="empty-signal"><Search size={20} /></div><h3>{t.noResults}</h3><p>{t.noResultsHint}</p><Button variant="outline" onClick={() => { setQuery(''); setActiveCategory('all') }}>{t.resetFilters}</Button></div>}
+        </div> : <div className="catalog-empty"><div className="empty-signal"><Search size={20} /></div><h3>{t.noResults}</h3><p>{t.noResultsHint}</p><Button variant="outline" onClick={() => { setQuery(''); setSearchDraft(''); setActiveCategory('all') }}>{t.resetFilters}</Button></div>}
       </section>
 
       <footer className="site-footer">
